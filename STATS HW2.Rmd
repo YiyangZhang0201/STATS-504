@@ -1,0 +1,208 @@
+---
+output: pdf_document
+---
+
+# Appendix
+
+This ﬁle details our data analysis and model ﬁtting process, examining the relationship between diﬀerent factors and vision loss from diabetic retinopathy. It also produces plots and tables for our statistical report.
+
+First, we load the data and do the overall checking. There are no NaN values.
+
+```{r loaddata, warning=FALSE}
+library(ggplot2)
+# load the required data
+data <- read.csv("diabeticVision.csv")
+# check the dimensions of data
+dim(data)
+# check the head of data
+head(data)
+```
+
+Now, we can start the data analysis process. First we check the overall distribution of the data.
+
+```{r dataana1, warning=FALSE}
+# check the length of unique id
+length(unique(data$id))
+
+# distribution for laser
+table(data$laser)/sum(!is.na(data$laser))*100
+
+# overall distribution
+library(reshape2)
+ggplot(melt(data[,-1]),  aes(x=value))+ geom_histogram(position='dodge') + 
+facet_wrap(~variable, scales ="free")
+```
+
+Above are the histograms of the data variables.
+
+Some of the variables are categorical, and we change their type into categorical data. Then, we do the summary of the data.
+
+```{r factor}
+# factor reasonable datas
+data$status <- factor(data$status)
+data$laser <- factor(data$laser)
+data$eye <- factor(data$eye)
+data$type <- factor(data$type)
+data$trt <- factor(data$trt)
+summary(data[, -1])
+```
+
+Now we check the distribution split by treatment type.
+
+```{r dataana2}
+library(gridExtra)
+hist1 <- ggplot(data, aes(x=id, color=laser, fill=laser)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Type Distribution for Different ID")
+
+hist2 <- ggplot(data, aes(x=age, color=laser, fill=laser)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Type Distribution for Different Ages")
+
+hist3 <- ggplot(data, aes(x=futime, color=laser, fill=laser)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Type Distribution for Different Futime")
+
+hist4 <- ggplot(data, aes(x=risk, color=laser, fill=laser)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Type Distribution for Different Risk")
+
+grid.arrange(hist1, hist2, hist3, hist4,
+             nrow = 2, ncol = 2)
+```
+
+Now we check the distribution split by treated eye and controled eye.
+
+```{r dataana3, warning=FALSE}
+hist1 <- ggplot(data, aes(x=id, color=trt, fill=trt)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Treatment Dist for Different ID")
+
+hist2 <- ggplot(data, aes(x=age, color=trt, fill=trt)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Treatment Dist for Different Ages")
+
+hist3 <- ggplot(data, aes(x=futime, color=trt, fill=trt)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Treatment Dist for Different Futime")
+
+hist4 <- ggplot(data, aes(x=risk, color=trt, fill=trt)) + 
+  geom_histogram(position="dodge") + 
+  ggtitle("Treatment Dist for Different Risk")
+
+grid.arrange(hist1, hist2, hist3, hist4,
+             nrow = 2, ncol = 2)
+```
+
+Now we check the distribution first split by treated eye and controled eye and then split by status.
+
+```{r dataana4, warning=FALSE}
+data_t <- data[data$trt==1,]
+data_nt <- data[data$trt==0,]
+hist5 <- ggplot(data_t, aes(risk, color=status, fill=status)) + 
+  geom_histogram(position="dodge")+ 
+  ggtitle("Risks Dist for status (Treated)")
+hist7 <- ggplot(data_t, aes(futime, color=status, fill=status)) + 
+  geom_histogram(position="dodge")+ 
+  ggtitle("Futime Dist for Status (Treated)")
+hist6 <- ggplot(data_nt, aes(risk, color=status, fill=status)) + 
+  geom_histogram(position="dodge")+ 
+  ggtitle("Risks Distr for status (Not Treated)")
+hist8 <- ggplot(data_nt, aes(futime, color=status, fill=status)) + 
+  geom_histogram(position="dodge")+ 
+  ggtitle("Futime Dist for Status (Not Treated)")
+
+# combined plot
+grid.arrange(hist5, hist6, hist7, hist8,
+             nrow = 2, ncol = 2)
+```
+
+Now we check the distribution across eyes of treatment and treatment or not.
+
+```{r}
+p1 <- ggplot(data, aes(x=status, fill=trt)) + geom_bar(position = "dodge")
+p2 <- ggplot(data, aes(x=status, fill=eye)) + geom_bar(position = "dodge")
+grid.arrange(p1, p2, nrow = 1, ncol = 2)
+```
+
+Here is the pair plot of the variables.
+
+```{r}
+library(corrplot)
+library(GGally)
+ggpairs(data[,-1], axisLabels = 'none',
+upper = list(continuous = 'points', combo = 'dot'), 
+lower = list(continuous = 'cor', combo= 'dot'), 
+diag =list(continuous = 'densityDiag'))
+```
+
+
+```{r}
+data_ts <- data_t[data_t$status==1,]
+# distribution for laser in treated but lost vision eye
+table(data_ts$laser)/sum(!is.na(data_ts$laser))*100
+```
+
+From the above distribution, we can see that xenon type seems have less people loss their eyesight.
+
+
+## Plot  Kaplan-Meier   Curves
+
+Here we examine the overall K-M curve across all diﬀerent groups just to gain a general picture.
+
+```{r}
+library(survival)
+data <- read.csv("diabeticVision.csv")
+survobj <- with(data[data$trt  ==  1,  ], Surv(futime,  status))
+fit0 <- survfit(survobj  ~  1, data =  data[data$trt  ==  1,  ])
+plot(fit0,  xlab="Time  at  risk  for  loss  of  vision  in  months", 
+ylab= "%  maintain  vision",  yscale=100,
+main = "Survival  Distribution  (Overall)")
+```
+
+Here  we  examine  the  survival  distribution  for  each  of  the  diﬀerent  types  of  laser  treatment  along  with  their 
+respective  control  group.
+
+```{r}
+#    create    new    variable    for    the    4    different    "treatment    types"
+data$treatment <- as.character(data$laser)
+data$treatment <- ifelse(data$trt == 0,paste(data$treatment, "control"), paste(data$treatment, "treated"))
+survobj <- with(data, Surv(futime, status))
+fitr <- survfit(survobj    ~    treatment, data = data)
+plot(fitr, xlab="Time at risk for loss of vision in months", 
+ylab="% maintain vision", yscale=100,
+main="Survival Distribution by Treatment", col = c('indianred1', 'red', 'lightgreen', 'green'))
+legend('bottomleft', legend=levels(as.factor(data$treatment)), 
+col = c('indianred1', 'red', 'lightgreen', 'green'),
+lty=1)
+```
+
+## Fit  Cox   Proportional-Hazards   Models
+
+First ﬁt the model without accounting for association between observations.
+
+```{r}
+mod <- coxph(Surv(futime, status) ~ laser*trt + age + risk, data) 
+summary(mod)
+```
+
+Fit  the  model  while  accounting  for  association  between  observations  using  the  cluster.
+
+```{r}
+mod_c <- coxph(Surv(futime, status) ~ laser*trt + age + risk + cluster(id), data)
+summary(mod_c)
+```
+
+Fit  the  model  while  accounting  for  association  between  observations  using  the  frailty  options.
+
+```{r}
+mod_f <- coxph(Surv(futime, status) ~ laser*trt + age + risk + frailty(id), data)
+summary(mod_f)
+```
+
+Check to ensure that we do in fact have proportional hazards.
+
+```{r}
+test.ph <- cox.zph(coxph(Surv(futime, status) ~ laser*trt + age + risk, data)) 
+test.ph
+```
